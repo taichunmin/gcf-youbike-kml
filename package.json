@@ -1,0 +1,31 @@
+{
+  "name": "gcf-youbike-kml",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:taichunmin/gcf-youbike-kml.git",
+  "author": "taichunmin <taichunmin@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/storage": "^5.8.1",
+    "axios": "^0.21.1",
+    "dayjs": "^1.10.4",
+    "lodash": "^4.17.21",
+    "papaparse": "^5.3.0",
+    "xmlbuilder2": "^2.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^7.22.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1",
+    "jest": "^26.6.3"
+  },
+  "scripts": {
+    "deploy": "gcloud functions deploy gcf-youbike-kml --entry-point=cron --env-vars-file=.env.yaml --max-instances=1 --memory=128MB --no-user-output-enabled --region=us-central1 --runtime=nodejs12 --timeout=120s --trigger-topic=cron-every-day-0001",
+    "lint": "eslint --ext .js --fix .",
+    "repl": "node --experimental-repl-await repl.js",
+    "start": "functions-framework --port=3000 --target=main --signature-type=http",
+    "test": "jest"
+  }
+}

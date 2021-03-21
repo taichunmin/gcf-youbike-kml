@@ -101,7 +101,7 @@ exports.stationToKml = (() => {
   const typeStyle = { 1: '#icon-yb1', 2: '#icon-yb2' }
 
   return async ({ name, stations, today }) => {
-    const doc = { name: `${name} (${today} 更新)` }
+    const doc = { name }
 
     // icons
     doc.Style = kmlIcons
@@ -126,41 +126,25 @@ exports.stationToKml = (() => {
   }
 })()
 
-exports.kmlsToHtml = async ({ kmls, today }) => {
-  return xmlbuilder2.create({
-    encoding: 'UTF-8',
-    version: '1.0',
-  }, {
-    kml: {
-      '@xmlns': 'http://www.opengis.net/kml/2.2',
-      Document: {
-        name: 'YouBike 站點地圖',
-        description: '台灣 YouBike 站點地圖，資料來自開放資料。',
-        NetworkLink: _.map(kmls, (kml, part) => {
-          part = _.parseInt(part) + 1
-          return { name: `YouBike ${part}`, Link: { href: kml } }
-        }),
-      },
-    },
-  }).end({ prettyPrint: true })
-}
-
 exports.cron = async () => {
   try {
     const kmls = []
-    const chunks = _.chunk(await exports.getCsv(CSV_YOUBIKE_STATIONS), 2000)
+    const stationsByType = _.groupBy(await exports.getCsv(CSV_YOUBIKE_STATIONS), 'type')
     const today = dayjs().utcOffset(8).format('YYYY-MM-DD')
-    await Promise.all(_.map(chunks, async (stations, part) => {
-      part = _.parseInt(part) + 1
-      const kml = await exports.stationToKml({ name: `YouBike ${part}`, stations, today })
-      await exports.gcsUpload({
-        contentType: 'application/vnd.google-earth.kml+xml; charset=utf-8',
-        data: kml,
-        dest: `youbike-kml/${part}.kml`,
-      })
-      kmls.push(`https://storage-taichunmin.taichunmin.idv.tw/youbike-kml/${part}.kml`)
-    }))
-    // network links
+    const promises = []
+    _.each(stationsByType, (stations, type) => {
+      promises.push(..._.map(_.chunk(stations, 2000), async (chunk, part) => {
+        part = _.parseInt(part) + 1
+        const kml = await exports.stationToKml({ name: `YouBike ${type}.0 (${today} 第 ${part} 部份)`, stations })
+        await exports.gcsUpload({
+          contentType: 'application/vnd.google-earth.kml+xml; charset=utf-8',
+          data: kml,
+          dest: `youbike-kml/yb${type}-${part}.kml`,
+        })
+        kmls.push(`https://storage-taichunmin.taichunmin.idv.tw/youbike-kml/yb${type}-${part}.kml`)
+      }))
+    })
+    await Promise.all(promises)
     await exports.gcsUpload({
       contentType: 'application/json; charset=utf-8',
       data: JSON.stringify(kmls),

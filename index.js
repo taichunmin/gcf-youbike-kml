@@ -81,50 +81,26 @@ exports.gcsUpload = (() => {
   }
 })()
 
-exports.stationToKml = (() => {
-  const kmlIcons = [
-    {
-      '@id': 'icon-yb1',
-      IconStyle: {
-        scale: '0.5',
-        Icon: { href: 'https://i.imgur.com/WcdI4Nt.png' },
-      },
+exports.stationToKml = ({ name, stations }) => {
+  const doc = { name }
+
+  // stations
+  doc.Placemark = _.map(stations, s => ({
+    name: s.name,
+    description: `地址: ${s.city}${s.area}${s.address}\n車位: ${s.space}`,
+    Point: { coordinates: `${_.round(s.lng, 6)},${_.round(s.lat, 6)},0` },
+  }))
+
+  return xmlbuilder2.create({
+    encoding: 'UTF-8',
+    version: '1.0',
+  }, {
+    kml: {
+      '@xmlns': 'http://www.opengis.net/kml/2.2',
+      Document: doc,
     },
-    {
-      '@id': 'icon-yb2',
-      IconStyle: {
-        scale: '0.5',
-        Icon: { href: 'https://i.imgur.com/cvcGgeu.png' },
-      },
-    },
-  ]
-  const typeStyle = { 1: '#icon-yb1', 2: '#icon-yb2' }
-
-  return async ({ name, stations, today }) => {
-    const doc = { name }
-
-    // icons
-    doc.Style = kmlIcons
-
-    // stations
-    doc.Placemark = _.map(stations, s => ({
-      name: s.name,
-      description: `地址: ${s.city}${s.area}${s.address}\n車位: ${s.space}`,
-      styleUrl: typeStyle[s.type],
-      Point: { coordinates: `${_.round(s.lng, 6)},${_.round(s.lat, 6)},0` },
-    }))
-
-    return xmlbuilder2.create({
-      encoding: 'UTF-8',
-      version: '1.0',
-    }, {
-      kml: {
-        '@xmlns': 'http://www.opengis.net/kml/2.2',
-        Document: doc,
-      },
-    }).end({ prettyPrint: false })
-  }
-})()
+  }).end({ prettyPrint: false })
+}
 
 exports.cron = async () => {
   try {
@@ -135,7 +111,7 @@ exports.cron = async () => {
     _.each(stationsByType, (stations, type) => {
       promises.push(..._.map(_.chunk(stations, 2000), async (chunk, part) => {
         part = _.parseInt(part) + 1
-        const kml = await exports.stationToKml({ name: `YouBike ${type}.0 (${today} 第 ${part} 部份)`, stations })
+        const kml = exports.stationToKml({ name: `YouBike ${type}.0 (${today} 第 ${part} 部份)`, stations })
         await exports.gcsUpload({
           contentType: 'application/vnd.google-earth.kml+xml; charset=utf-8',
           data: kml,

@@ -102,10 +102,17 @@ exports.stationToKml = ({ name, stations }) => {
   }).end({ prettyPrint: false })
 }
 
+exports.getStationsByType = async () => {
+  const tsOneDayAgo = _.floor(Date.now() / 1e3) - 86400
+  let stations = await exports.getCsv(CSV_YOUBIKE_STATIONS)
+  stations = _.filter(stations, s => _.toSafeInteger(s.updated_at) > tsOneDayAgo)
+  return _.groupBy(stations, 'type')
+}
+
 exports.cron = async () => {
   try {
     const kmls = []
-    const stationsByType = _.groupBy(await exports.getCsv(CSV_YOUBIKE_STATIONS), 'type')
+    const stationsByType = await exports.getStationsByType()
     const today = dayjs().utcOffset(8).format('YYYY-MM-DD')
     const promises = []
     _.each(stationsByType, (stations, type) => {
